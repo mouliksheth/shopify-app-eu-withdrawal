@@ -1,0 +1,88 @@
+{{ 'widget.css' | asset_url | stylesheet_tag }}
+
+<!-- Inline Withdrawal Button Container Placeholder -->
+<div class="eu-withdrawal-container" data-eu-withdrawal-inline style="text-align: center; margin: 20px 0;">
+  <!-- JavaScript will dynamically render the button here based on Admin Settings -->
+</div>
+
+<!-- Modal Overlay (Falls back here if App Embed is not enabled, though App Embed is recommended) -->
+<div class="eu-withdrawal-modal-overlay" id="eu-withdrawal-overlay">
+  <div class="eu-withdrawal-modal">
+    <div class="eu-withdrawal-modal-header">
+      <h3 class="eu-withdrawal-modal-title">Contract Withdrawal Request</h3>
+      <button class="eu-withdrawal-modal-close" id="eu-withdrawal-close-btn">&times;</button>
+    </div>
+    <div class="eu-withdrawal-modal-body">
+      
+      <!-- Step 1: Verification Form -->
+      <div class="eu-withdrawal-step active" id="eu-step-1">
+        <p style="margin-top: 0; margin-bottom: 20px; font-size: 14px; color: #666;">
+          To verify your order without logging in, please enter the order number (e.g., #1001) and the billing email address.
+        </p>
+        <div class="eu-withdrawal-form-group">
+          <label class="eu-withdrawal-label" for="eu-input-order">Order Number</label>
+          <input class="eu-withdrawal-input" type="text" id="eu-input-order" placeholder="#1001" required>
+          <span class="eu-withdrawal-error" id="eu-error-order">Please enter a valid order number.</span>
+        </div>
+        <div class="eu-withdrawal-form-group">
+          <label class="eu-withdrawal-label" for="eu-input-email">Billing Email Address</label>
+          <input class="eu-withdrawal-input" type="email" id="eu-input-email" placeholder="email@example.com" required>
+          <span class="eu-withdrawal-error" id="eu-error-email">Please enter a valid email address.</span>
+        </div>
+        <div class="eu-withdrawal-error" id="eu-verification-general-error" style="margin-bottom: 15px; display: none;"></div>
+        <button class="eu-withdrawal-btn-primary" id="eu-btn-verify">Verify Order</button>
+      </div>
+
+      <!-- Step 2: Product Selection & Legal Notice -->
+      <div class="eu-withdrawal-step" id="eu-step-2">
+        <p style="margin-top: 0; margin-bottom: 15px; font-size: 14px; color: #666;">
+          Select the items you wish to withdraw from the contract:
+        </p>
+        
+        <div class="eu-withdrawal-form-group" style="max-height: 200px; overflow-y: auto; margin-bottom: 20px; border: 1px solid #eee; padding: 10px; border-radius: 6px;">
+          <div id="eu-items-container">
+            <!-- Dynamically populated via JS -->
+          </div>
+        </div>
+
+        <div class="eu-withdrawal-legal-text">
+          I hereby withdraw from the contract concluded by me for the purchase of the selected goods/services. I understand that withdrawal must be initiated within the permitted statutory period.
+        </div>
+
+        <div class="eu-withdrawal-error" id="eu-submit-general-error" style="margin-bottom: 15px; display: none;"></div>
+        <button class="eu-withdrawal-btn-primary" id="eu-btn-confirm">Confirm Withdrawal</button>
+      </div>
+
+      <!-- Step 3: Success Screen -->
+      <div class="eu-withdrawal-step" id="eu-step-3">
+        <div class="eu-withdrawal-success-icon">&#10003;</div>
+        <h4 class="eu-withdrawal-success-title">Withdrawal Submitted</h4>
+        <p class="eu-withdrawal-success-text">
+          Your contract withdrawal request has been received. A legal confirmation email has been sent to your email address.
+          <br><br>
+          Reference ID: <span class="eu-withdrawal-ref-id" id="eu-ref-id">N/A</span>
+        </p>
+        <button class="eu-withdrawal-btn-primary" id="eu-btn-success-close">Close</button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  window.ShopifyWithdrawalApp = window.ShopifyWithdrawalApp || {
+    shop: "{{ shop.permanent_domain }}",
+    proxyPath: "/apps/eu-withdrawal",
+    country: "{{ localization.country.iso_code }}"
+  };
+</script>
+
+<script src="{{ 'widget.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Withdrawal Button (Inline)",
+  "target": "section",
+  "settings": []
+}
+{% endschema %}

@@ -1,6 +1,5 @@
-import { data } from "react-router";
+import { data, Form, useLoaderData, useRouteError } from "react-router";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
-import { useFetcher, useLoaderData } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
@@ -92,24 +91,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
 export default function Billing() {
   const { activeSubscriptionName, activeSubscriptionId } = useLoaderData<typeof loader>();
-  const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
-
-  const handleUpgrade = (planName: string) => {
-    fetcher.submit(
-      { actionType: "upgrade", planName },
-      { method: "POST" }
-    );
-  };
-
-  const handleDowngradeFree = () => {
-    if (confirm("Are you sure you want to cancel your paid plan and return to the Free tier?")) {
-      fetcher.submit(
-        { actionType: "downgrade_free", subscriptionId: activeSubscriptionId || "" },
-        { method: "POST" }
-      );
-    }
-  };
 
   return (
     <s-page heading="Pricing Plans">
@@ -234,9 +216,17 @@ export default function Billing() {
               </div>
             </div>
             {activeSubscriptionName !== "Free Plan" ? (
-              <s-button className="btn-select" variant="secondary" onClick={handleDowngradeFree}>
-                Downgrade to Free
-              </s-button>
+              <Form method="post" style={{ width: "100%" }} onSubmit={(e) => {
+                if (!confirm("Are you sure you want to cancel your paid plan and return to the Free tier?")) {
+                  e.preventDefault();
+                }
+              }}>
+                <input type="hidden" name="actionType" value="downgrade_free" />
+                <input type="hidden" name="subscriptionId" value={activeSubscriptionId || ""} />
+                <s-button type="submit" className="btn-select" variant="secondary">
+                  Downgrade to Free
+                </s-button>
+              </Form>
             ) : (
               <s-button className="btn-select" disabled>Current Plan</s-button>
             )}
@@ -267,9 +257,13 @@ export default function Billing() {
               </div>
             </div>
             {activeSubscriptionName !== BASIC_PLAN ? (
-              <s-button className="btn-select" onClick={() => handleUpgrade(BASIC_PLAN)}>
-                {activeSubscriptionName === "Free Plan" ? "Upgrade" : "Select Plan"}
-              </s-button>
+              <Form method="post" style={{ width: "100%" }}>
+                <input type="hidden" name="actionType" value="upgrade" />
+                <input type="hidden" name="planName" value={BASIC_PLAN} />
+                <s-button type="submit" className="btn-select">
+                  {activeSubscriptionName === "Free Plan" ? "Upgrade" : "Select Plan"}
+                </s-button>
+              </Form>
             ) : (
               <s-button className="btn-select" disabled>Current Plan</s-button>
             )}
@@ -300,9 +294,13 @@ export default function Billing() {
               </div>
             </div>
             {activeSubscriptionName !== GROWTH_PLAN ? (
-              <s-button className="btn-select" onClick={() => handleUpgrade(GROWTH_PLAN)}>
-                {activeSubscriptionName === "Free Plan" ? "Upgrade" : "Select Plan"}
-              </s-button>
+              <Form method="post" style={{ width: "100%" }}>
+                <input type="hidden" name="actionType" value="upgrade" />
+                <input type="hidden" name="planName" value={GROWTH_PLAN} />
+                <s-button type="submit" className="btn-select">
+                  {activeSubscriptionName === "Free Plan" ? "Upgrade" : "Select Plan"}
+                </s-button>
+              </Form>
             ) : (
               <s-button className="btn-select" disabled>Current Plan</s-button>
             )}
@@ -333,9 +331,13 @@ export default function Billing() {
               </div>
             </div>
             {activeSubscriptionName !== UNLIMITED_PLAN ? (
-              <s-button className="btn-select" onClick={() => handleUpgrade(UNLIMITED_PLAN)}>
-                {activeSubscriptionName === "Free Plan" ? "Upgrade" : "Select Plan"}
-              </s-button>
+              <Form method="post" style={{ width: "100%" }}>
+                <input type="hidden" name="actionType" value="upgrade" />
+                <input type="hidden" name="planName" value={UNLIMITED_PLAN} />
+                <s-button type="submit" className="btn-select">
+                  {activeSubscriptionName === "Free Plan" ? "Upgrade" : "Select Plan"}
+                </s-button>
+              </Form>
             ) : (
               <s-button className="btn-select" disabled>Current Plan</s-button>
             )}
@@ -353,4 +355,3 @@ export const headers: HeadersFunction = (headersArgs) => {
 export function ErrorBoundary() {
   return boundary.error(useRouteError());
 }
-import { useRouteError } from "react-router";

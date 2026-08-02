@@ -23,14 +23,32 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return data({ success: false, message: "Method not allowed" }, { status: 405, headers: corsHeaders });
   }
 
+  let authResult;
   try {
     // Authenticate the request via Shopify App Proxy
-    const { admin, session } = await authenticate.public.appProxy(request);
-
-    if (!admin) {
-      return data({ success: false, message: "Unauthorized. App not active on this shop." }, { status: 401, headers: corsHeaders });
+    authResult = await authenticate.public.appProxy(request);
+  } catch (authError) {
+    console.error("App Proxy signature verification failed:", authError);
+    if (authError instanceof Response) {
+      const text = await authError.text();
+      return data({ success: false, message: `Signature verification failed: ${text || authError.statusText}` }, { 
+        status: authError.status, 
+        headers: corsHeaders 
+      });
     }
+    return data({ success: false, message: `Signature verification failed: ${authError instanceof Error ? authError.message : String(authError)}` }, { 
+      status: 401, 
+      headers: corsHeaders 
+    });
+  }
 
+  const { admin, session } = authResult;
+
+  if (!admin) {
+    return data({ success: false, message: "Unauthorized. App not active on this shop." }, { status: 401, headers: corsHeaders });
+  }
+
+  try {
     const url = new URL(request.url);
     const pathname = url.pathname;
     
@@ -129,8 +147,9 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       const orderNode = orders[0].node;
 
-      // Verify email matches (case insensitive)
-      if (orderNode.email.toLowerCase() !== email.toLowerCase()) {
+      // Verify email matches (case insensitive), with null-safety
+      const orderEmail = orderNode.email || "";
+      if (orderEmail.toLowerCase() !== email.toLowerCase()) {
         return data({ success: false, message: "Verification failed. Email does not match." }, { status: 403, headers: corsHeaders });
       }
 
@@ -140,7 +159,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       let latestFulfillmentDate = null;
 
       if (orderNode.displayFulfillmentStatus === "FULFILLED") {
-        const activeFulfillments = orderNode.fulfillments.filter(
+        const activeFulfillments = (orderNode.fulfillments || []).filter(
           (f: any) => f.status !== "CANCELLED"
         );
         if (activeFulfillments.length > 0) {
@@ -159,8 +178,8 @@ export const action = async ({ request }: ActionFunctionArgs) => {
         }, { status: 400, headers: corsHeaders });
       }
 
-      // Format line items for step 2
-      const lineItems = orderNode.lineItems.edges.map((edge: any) => ({
+      // Format line items for step 2, with null-safety
+      const lineItems = (orderNode.lineItems?.edges || []).map((edge: any) => ({
         id: edge.node.id,
         title: edge.node.title,
         variantTitle: edge.node.variantTitle,

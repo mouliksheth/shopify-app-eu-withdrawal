@@ -38,55 +38,66 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing, admin } = await authenticate.admin(request);
+  const { billing, admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const actionType = formData.get("actionType");
 
-  if (actionType === "upgrade") {
-    const planName = formData.get("planName") as string;
-    
-    // Request recurring charge from Shopify (which handles auth redirect)
-    return await billing.request({
-      plan: planName,
-      isTest: true,
-    });
-  }
+  try {
+    if (actionType === "upgrade") {
+      const planName = formData.get("planName") as string;
+      const shopDomain = session.shop;
+      const returnUrl = `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`;
+      
+      // Request recurring charge from Shopify (which handles auth redirect)
+      return await billing.request({
+        plan: planName,
+        isTest: true,
+        returnUrl,
+      });
+    }
 
-  if (actionType === "downgrade_free") {
-    const subscriptionId = formData.get("subscriptionId") as string;
-    
-    if (subscriptionId) {
-      // Cancel active subscription via GraphQL Admin API
-      const cancelResponse = await admin.graphql(`
-        #graphql
-        mutation appSubscriptionCancel($id: ID!) {
-          appSubscriptionCancel(id: $id) {
-            appSubscription {
-              id
-              status
-            }
-            userErrors {
-              field
-              message
+    if (actionType === "downgrade_free") {
+      const subscriptionId = formData.get("subscriptionId") as string;
+      
+      if (subscriptionId) {
+        // Cancel active subscription via GraphQL Admin API
+        const cancelResponse = await admin.graphql(`
+          #graphql
+          mutation appSubscriptionCancel($id: ID!) {
+            appSubscriptionCancel(id: $id) {
+              appSubscription {
+                id
+                status
+              }
+              userErrors {
+                field
+                message
+              }
             }
           }
+        `, {
+          variables: { id: subscriptionId }
+        });
+        
+        const resJson = await cancelResponse.json();
+        const userErrors = resJson.data?.appSubscriptionCancel?.userErrors || [];
+        
+        if (userErrors.length > 0) {
+          return data({ success: false, error: userErrors[0].message });
         }
-      `, {
-        variables: { id: subscriptionId }
-      });
-      
-      const resJson = await cancelResponse.json();
-      const userErrors = resJson.data?.appSubscriptionCancel?.userErrors || [];
-      
-      if (userErrors.length > 0) {
-        return data({ success: false, error: userErrors[0].message });
       }
+      
+      return data({ success: true, message: "Successfully downgraded to the Free Plan." });
     }
-    
-    return data({ success: true, message: "Successfully downgraded to the Free Plan." });
-  }
 
-  return data({ success: false, error: "Invalid action" }, { status: 400 });
+    return data({ success: false, error: "Invalid action" }, { status: 400 });
+  } catch (error) {
+    console.error("Billing action failed:", error);
+    if (error instanceof Response) {
+      throw error;
+    }
+    return data({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
+  }
 };
 
 export default function Billing() {

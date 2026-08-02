@@ -1,13 +1,12 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "dcb7e0894a2c54f1f0205c49a65f5edf"
-name = "EU_Withdrawl_Form"
+name = "SafeEU: EU Withdrawal Button"
 application_url = "https://app-eu-withdrawal.vercel.app"
 embedded = true
 
 [build]
 automatically_update_urls_on_dev = true
-include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"

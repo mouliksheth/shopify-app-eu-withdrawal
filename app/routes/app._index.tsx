@@ -31,7 +31,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     orderBy: { submittedAt: "desc" }
   });
 
-  return { requests, settings };
+  return { requests, settings, shopDomain };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -104,20 +104,28 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Index() {
-  const { requests, settings } = useLoaderData<typeof loader>();
+  const { requests: initialRequests, settings, shopDomain } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
 
-  const [activeRequest, setActiveRequest] = useState<any>(null);
-  const [rejectReason, setRejectReason] = useState("");
+  const [requests, setRequests] = useState(initialRequests);
+  const [activeRequest, setActiveRequest] = useState<any | null>(null);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
 
+  // Sync state with fetched/loader changes
+  useEffect(() => {
+    setRequests(initialRequests);
+  }, [initialRequests]);
+
+  // Handle toast notifications
   useEffect(() => {
     if (fetcher.data?.success) {
-      shopify.toast.show(fetcher.data.message || "Action processed successfully");
+      shopify.toast.show(fetcher.data.message || "Action successful");
+      // Close modal on action complete
       setActiveRequest(null);
-      setRejectReason("");
       setIsRejecting(false);
+      setRejectReason("");
     } else if (fetcher.data?.error) {
       shopify.toast.show(fetcher.data.error, { isError: true });
     }
@@ -137,25 +145,27 @@ export default function Index() {
     );
   };
 
-  // Convert raw graphql ID to a usable URL for order details
-  const getOrderAdminUrl = (graphqlId: string) => {
-    const rawId = graphqlId.split("/").pop();
-    return `https://admin.shopify.com/store/${settings.shopDomain.split(".")[0]}/orders/${rawId}`;
-  };
-
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
+      case "pending_review":
+        return "badge-attention";
       case "approved":
         return "badge-success";
       case "rejected":
         return "badge-critical";
       default:
-        return "badge-attention";
+        return "";
     }
   };
 
+  const getOrderAdminUrl = (orderId: string) => {
+    // orderId looks like "gid://shopify/Order/123456789"
+    const parsedId = orderId.split("/").pop();
+    return `https://${shopDomain}/admin/orders/${parsedId}`;
+  };
+
   return (
-    <s-page heading="EU Withdrawal Requests">
+    <s-page heading="Compliance Request Logs">
       <style>{`
         .requests-container {
           display: flex;
@@ -167,54 +177,50 @@ export default function Index() {
           background: #ffffff;
           border: 1px solid #e1e3e5;
           border-radius: 8px;
-          padding: 16px;
+          padding: 16px 20px;
           box-shadow: 0 1px 3px rgba(0,0,0,0.05);
           display: flex;
           justify-content: space-between;
           align-items: center;
-          transition: all 0.2s ease;
-        }
-        .request-card:hover {
-          border-color: #a4acb3;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+          gap: 16px;
+          flex-wrap: wrap;
         }
         .request-info {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 4px;
         }
         .order-name {
+          font-weight: bold;
           font-size: 16px;
-          font-weight: 600;
           color: #202223;
         }
         .customer-email {
-          font-size: 14px;
           color: #6d7175;
+          font-size: 14px;
         }
         .request-date {
-          font-size: 12px;
           color: #8c9196;
+          font-size: 12px;
         }
         .badge {
           display: inline-block;
-          padding: 4px 8px;
+          padding: 2px 8px;
           border-radius: 12px;
           font-size: 12px;
-          font-weight: 600;
-          text-transform: capitalize;
+          font-weight: 500;
         }
         .badge-attention {
-          background: #ffe5b5;
-          color: #8a6116;
+          background: #ffe0b2;
+          color: #e65100;
         }
         .badge-success {
-          background: #e2f9e9;
-          color: #108043;
+          background: #e8f5e9;
+          color: #2e7d32;
         }
         .badge-critical {
-          background: #fed3d3;
-          color: #c92424;
+          background: #ffebee;
+          color: #c62828;
         }
         .actions-cell {
           display: flex;
@@ -222,10 +228,11 @@ export default function Index() {
         }
         .empty-state {
           text-align: center;
-          padding: 48px;
-          background: #ffffff;
-          border: 1px dashed #e1e3e5;
+          padding: 40px;
+          background: #fafafb;
+          border: 1px dashed #c9cccf;
           border-radius: 8px;
+          margin-top: 16px;
         }
         .modal-overlay {
           position: fixed;
@@ -246,6 +253,8 @@ export default function Index() {
           max-width: 90%;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15);
           overflow: hidden;
+          display: flex;
+          flex-direction: column;
         }
         .modal-header {
           padding: 16px 20px;
@@ -255,16 +264,19 @@ export default function Index() {
           align-items: center;
         }
         .modal-title {
+          margin: 0;
           font-size: 16px;
           font-weight: 600;
-          margin: 0;
         }
         .modal-body {
           padding: 20px;
+          overflow-y: auto;
+          max-height: 400px;
         }
         .modal-footer {
-          padding: 16px 20px;
+          padding: 12px 20px;
           border-top: 1px solid #e1e3e5;
+          background: #fafafb;
           display: flex;
           justify-content: flex-end;
           gap: 12px;
@@ -290,6 +302,24 @@ export default function Index() {
           margin-top: 4px;
         }
       `}</style>
+
+      {/* Deep Link to Theme Editor Onboarding instructions */}
+      <div style={{ background: "#eaf5ff", border: "1px solid #b3dbff", padding: "16px", borderRadius: "8px", marginBottom: "20px", display: "flex", flexDirection: "column", gap: "8px" }}>
+        <h4 style={{ margin: 0, fontWeight: 600, color: "#003b66" }}>🚀 Setup Storefront Widget Extension</h4>
+        <p style={{ margin: 0, fontSize: "13px", color: "#004b82" }}>
+          To display the contract withdrawal widget to buyers, you must enable the Global App Embed. Click below to open your Theme Customizer in one click.
+        </p>
+        <div style={{ display: "flex", gap: "10px" }}>
+          <a
+            href={`https://${shopDomain}/admin/themes/current/editor?context=apps`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ display: "inline-block", background: "#008060", color: "#ffffff", padding: "8px 16px", borderRadius: "4px", fontSize: "13px", fontWeight: "bold", textDecoration: "none" }}
+          >
+            Customize in Theme Editor (Deep Link)
+          </a>
+        </div>
+      </div>
 
       <s-section heading="Manage Incoming Contract Cancellations">
         <s-paragraph>
@@ -391,6 +421,10 @@ export default function Index() {
                 </div>
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+                  {/* GDPR/Refund Compliance Warning */}
+                  <div style={{ background: "#fffbeb", padding: "10px", borderRadius: "4px", borderLeft: "4px solid #d97706", fontSize: "13px", color: "#b45309", marginBottom: "8px", lineHeight: "1.4" }}>
+                    <strong>⚠️ Refund Compliance Notice:</strong> Refund transactions must be processed through the original payment processor. Approving this compliance log does <em>not</em> reverse credit card payments automatically. You must still issue the actual refund manually via the native Shopify Order detail page.
+                  </div>
                   <div>
                     <strong>Order Link:</strong>{" "}
                     <a

@@ -45,7 +45,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
     }
   });
 
-  return { settings, isPremium };
+  return { settings, isPremium, shopDomain };
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
@@ -111,7 +111,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Settings() {
-  const { settings, isPremium } = useLoaderData<typeof loader>();
+  const { settings, isPremium, shopDomain } = useLoaderData<typeof loader>();
   const fetcher = useFetcher<typeof action>();
   const shopify = useAppBridge();
 
@@ -257,7 +257,7 @@ export default function Settings() {
                 {selectedPlacement === "inline" && (
                   <div style={{ background: "#eaf5ff", borderLeft: "4px solid #006ebc", padding: "16px", borderRadius: "4px", marginTop: "12px", fontSize: "13px", lineHeight: "1.5", color: "#003b66" }}>
                     <strong>ℹ️ How to add the Inline Section button to your theme:</strong>
-                    <ol style={{ margin: "6px 0 0 0", paddingLeft: "20px" }}>
+                    <ol style={{ margin: "6px 0 10px 0", paddingLeft: "20px" }}>
                       <li>Go to your Shopify Admin &gt; <strong>Online Store &gt; Themes</strong>.</li>
                       <li>Click <strong>Customize</strong> next to your active theme.</li>
                       <li>Navigate to the page template (e.g. Footer or Cart page).</li>
@@ -265,6 +265,14 @@ export default function Settings() {
                       <li>Click the <strong>Apps</strong> tab and select <strong>Withdrawal Button</strong>.</li>
                       <li>Position the block and click <strong>Save</strong>.</li>
                     </ol>
+                    <a
+                      href={`https://${shopDomain}/admin/themes/current/editor?context=apps`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: "inline-block", background: "#006ebc", color: "#ffffff", padding: "6px 12px", borderRadius: "4px", fontSize: "12px", fontWeight: "bold", textDecoration: "none", marginTop: "6px" }}
+                    >
+                      Open Theme Editor (Deep Link)
+                    </a>
                   </div>
                 )}
               </div>

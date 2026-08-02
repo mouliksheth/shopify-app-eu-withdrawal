@@ -2,23 +2,15 @@
 
 client_id = "dcb7e0894a2c54f1f0205c49a65f5edf"
 name = "EU_Withdrawl_Form"
-application_url = "https://shopify.dev/apps/default-app-home"
+application_url = "https://app-eu-withdrawal.vercel.app"
 embedded = true
 
-[access_scopes]
-# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = ""
+[build]
+automatically_update_urls_on_dev = true
+include_config_on_deploy = true
 
 [webhooks]
 api_version = "2026-10"
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/uninstalled"
-  topics = [ "app/uninstalled" ]
-
-  [[webhooks.subscriptions]]
-  uri = "/webhooks/app/scopes_update"
-  topics = [ "app/scopes_update" ]
 
   [[webhooks.subscriptions]]
   uri = "/webhooks/customers/data_request"
@@ -32,14 +24,24 @@ api_version = "2026-10"
   uri = "/webhooks/shop/redact"
   compliance_topics = [ "shop/redact" ]
 
-[auth]
-redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/scopes_update"
+  topics = [ "app/scopes_update" ]
 
-[build]
-include_config_on_deploy = true
-automatically_update_urls_on_dev = true
+  [[webhooks.subscriptions]]
+  uri = "/webhooks/app/uninstalled"
+  topics = [ "app/uninstalled" ]
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = ""
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "https://app-eu-withdrawal.vercel.app/auth/callback" ]
 
 [app_proxy]
-url = "https://shopify.dev/apps/default-app-home/apps/eu-withdrawal"
+url = "https://app-eu-withdrawal.vercel.app"
 subpath = "eu-withdrawal"
 prefix = "apps"

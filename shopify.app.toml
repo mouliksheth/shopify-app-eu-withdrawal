@@ -41,6 +41,6 @@ use_legacy_install_flow = false
 redirect_urls = [ "https://app-eu-withdrawal.vercel.app/auth/callback" ]
 
 [app_proxy]
-url = "https://app-eu-withdrawal.vercel.app"
+url = "https://app-eu-withdrawal.vercel.app/apps/eu-withdrawal"
 subpath = "eu-withdrawal"
 prefix = "apps"

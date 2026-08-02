@@ -57,12 +57,66 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       const shopDomain = session.shop;
       const returnUrl = `https://${shopDomain}/admin/apps/${process.env.SHOPIFY_API_KEY}/app/billing`;
       
-      // Request recurring charge from Shopify (which handles auth redirect)
-      return await billing.request({
-        plan: planName,
-        isTest: true,
-        returnUrl,
+      const planPrice = planName === BASIC_PLAN ? 4.99 : planName === GROWTH_PLAN ? 14.99 : 24.99;
+
+      // Run the subscription mutation manually to inspect the exact userErrors from Shopify
+      const mutationRes = await admin.graphql(`
+        #graphql
+        mutation appSubscriptionCreate($name: String!, $lineItems: [AppSubscriptionLineItemInput!]!, $returnUrl: URL!, $test: Boolean) {
+          appSubscriptionCreate(name: $name, lineItems: $lineItems, returnUrl: $returnUrl, test: $test) {
+            appSubscription {
+              id
+            }
+            confirmationUrl
+            userErrors {
+              field
+              message
+            }
+          }
+        }
+      `, {
+        variables: {
+          name: planName,
+          returnUrl,
+          test: true,
+          lineItems: [
+            {
+              plan: {
+                appRecurringPricingDetails: {
+                  price: {
+                    amount: planPrice,
+                    currencyCode: "USD"
+                  },
+                  interval: "EVERY_30_DAYS"
+                }
+              }
+            }
+          ]
+        }
       });
+
+      const resJson = await mutationRes.json();
+      console.log("Manual billing mutation response:", JSON.stringify(resJson));
+
+      const userErrors = resJson.data?.appSubscriptionCreate?.userErrors || [];
+      if (userErrors.length > 0) {
+        return data({ 
+          success: false, 
+          error: `Shopify Billing rejected: ${userErrors[0].message} (Field: ${userErrors[0].field?.join(".") || "none"})`
+        }, { status: 400 });
+      }
+
+      const confirmationUrl = resJson.data?.appSubscriptionCreate?.confirmationUrl;
+      if (confirmationUrl) {
+        throw new Response(null, {
+          status: 302,
+          headers: {
+            Location: confirmationUrl
+          }
+        });
+      }
+
+      return data({ success: false, error: "Failed to obtain billing confirmation URL from Shopify." }, { status: 500 });
     }
 
     if (actionType === "downgrade_free") {

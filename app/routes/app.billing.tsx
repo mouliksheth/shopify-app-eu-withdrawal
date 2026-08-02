@@ -47,7 +47,7 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing, admin, session } = await authenticate.admin(request);
+  const { billing, admin, session, redirect } = await authenticate.admin(request);
   const formData = await request.formData();
   const actionType = formData.get("actionType");
 
@@ -108,12 +108,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 
       const confirmationUrl = resJson.data?.appSubscriptionCreate?.confirmationUrl;
       if (confirmationUrl) {
-        throw new Response(null, {
-          status: 302,
-          headers: {
-            Location: confirmationUrl
-          }
-        });
+        return redirect(confirmationUrl);
       }
 
       return data({ success: false, error: "Failed to obtain billing confirmation URL from Shopify." }, { status: 500 });
@@ -157,7 +152,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   } catch (error) {
     console.error("Billing action failed:", error);
     if (error instanceof Response) {
-      throw error;
+      return error;
     }
     return data({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

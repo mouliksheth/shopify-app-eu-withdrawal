@@ -1,8 +1,9 @@
-import { data, Form, useLoaderData, useRouteError } from "react-router";
+import { data, Form, useLoaderData, useRouteError, useActionData } from "react-router";
 import type { ActionFunctionArgs, HeadersFunction, LoaderFunctionArgs } from "react-router";
 import { useAppBridge } from "@shopify/app-bridge-react";
 import { authenticate } from "../shopify.server";
 import { boundary } from "@shopify/shopify-app-react-router/server";
+import { useEffect } from "react";
 
 const BASIC_PLAN = "Basic Plan";
 const GROWTH_PLAN = "Growth Plan";
@@ -11,15 +12,10 @@ const UNLIMITED_PLAN = "Unlimited Plan";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
 
-  // Fetch active subscriptions and store plan using GraphQL
+  // Fetch active subscriptions using GraphQL
   const response = await admin.graphql(`
     #graphql
     query {
-      shop {
-        plan {
-          partnerDevelopment
-        }
-      }
       currentAppInstallation {
         activeSubscriptions {
           id
@@ -31,23 +27,19 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   `);
 
   const resJson = await response.json();
-  const isDevStore = resJson.data?.shop?.plan?.partnerDevelopment || false;
   const activeSubscriptions = resJson.data?.currentAppInstallation?.activeSubscriptions || [];
   
   // Find if there is an active recurring charge
   const activeSubscription = activeSubscriptions.find((s: any) => s.status === "ACTIVE");
 
   return data({
-    activeSubscriptionName: activeSubscription 
-      ? activeSubscription.name 
-      : (isDevStore ? "Dev Mode (Premium Bypass)" : "Free Plan"),
+    activeSubscriptionName: activeSubscription ? activeSubscription.name : "Free Plan",
     activeSubscriptionId: activeSubscription ? activeSubscription.id : null,
-    isDevStore,
   });
 };
 
 export const action = async ({ request }: ActionFunctionArgs) => {
-  const { billing, admin, session, redirect } = await authenticate.admin(request);
+  const { admin, session } = await authenticate.admin(request);
   const formData = await request.formData();
   const actionType = formData.get("actionType");
 
@@ -102,13 +94,13 @@ export const action = async ({ request }: ActionFunctionArgs) => {
       if (userErrors.length > 0) {
         return data({ 
           success: false, 
-          error: `Shopify Billing rejected: ${userErrors[0].message} (Field: ${userErrors[0].field?.join(".") || "none"})`
+          error: `Shopify Billing rejected: ${userErrors[0].message}`
         }, { status: 400 });
       }
 
       const confirmationUrl = resJson.data?.appSubscriptionCreate?.confirmationUrl;
       if (confirmationUrl) {
-        return redirect(confirmationUrl);
+        return data({ success: true, confirmationUrl });
       }
 
       return data({ success: false, error: "Failed to obtain billing confirmation URL from Shopify." }, { status: 500 });
@@ -151,24 +143,25 @@ export const action = async ({ request }: ActionFunctionArgs) => {
     return data({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (error) {
     console.error("Billing action failed:", error);
-    if (error instanceof Response) {
-      return error;
-    }
     return data({ success: false, error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }
 };
 
 export default function Billing() {
-  const { activeSubscriptionName, activeSubscriptionId, isDevStore } = useLoaderData<typeof loader>();
+  const { activeSubscriptionName, activeSubscriptionId } = useLoaderData<typeof loader>();
+  const actionData = useActionData<typeof action>();
   const shopify = useAppBridge();
+
+  useEffect(() => {
+    if (actionData?.success && actionData?.confirmationUrl) {
+      window.top.location.href = actionData.confirmationUrl;
+    } else if (actionData && !actionData.success && actionData.error) {
+      shopify.toast.show(actionData.error, { isError: true });
+    }
+  }, [actionData, shopify]);
 
   return (
     <s-page heading="Pricing Plans">
-      {isDevStore && (
-        <div style={{ background: "#e2f9e9", border: "1px solid #a3e2bb", padding: "16px", borderRadius: "8px", marginBottom: "20px", color: "#108043", fontSize: "14px", lineHeight: "1.4" }}>
-          <strong>🛠️ Development Store Bypass Active:</strong> This store is recognized as a Partner Development store. You have full free access to all Premium features (Inline placement, EU countries filter) without needing to approve any charges.
-        </div>
-      )}
       <style>{`
         .pricing-grid {
           display: grid;

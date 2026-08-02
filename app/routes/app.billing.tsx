@@ -11,10 +11,15 @@ const UNLIMITED_PLAN = "Unlimited Plan";
 export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin } = await authenticate.admin(request);
 
-  // Fetch active subscriptions using GraphQL
+  // Fetch active subscriptions and store plan using GraphQL
   const response = await admin.graphql(`
     #graphql
     query {
+      shop {
+        plan {
+          partnerDevelopment
+        }
+      }
       currentAppInstallation {
         activeSubscriptions {
           id
@@ -26,14 +31,18 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   `);
 
   const resJson = await response.json();
+  const isDevStore = resJson.data?.shop?.plan?.partnerDevelopment || false;
   const activeSubscriptions = resJson.data?.currentAppInstallation?.activeSubscriptions || [];
   
   // Find if there is an active recurring charge
   const activeSubscription = activeSubscriptions.find((s: any) => s.status === "ACTIVE");
 
   return data({
-    activeSubscriptionName: activeSubscription ? activeSubscription.name : "Free Plan",
+    activeSubscriptionName: activeSubscription 
+      ? activeSubscription.name 
+      : (isDevStore ? "Dev Mode (Premium Bypass)" : "Free Plan"),
     activeSubscriptionId: activeSubscription ? activeSubscription.id : null,
+    isDevStore,
   });
 };
 
@@ -101,11 +110,16 @@ export const action = async ({ request }: ActionFunctionArgs) => {
 };
 
 export default function Billing() {
-  const { activeSubscriptionName, activeSubscriptionId } = useLoaderData<typeof loader>();
+  const { activeSubscriptionName, activeSubscriptionId, isDevStore } = useLoaderData<typeof loader>();
   const shopify = useAppBridge();
 
   return (
     <s-page heading="Pricing Plans">
+      {isDevStore && (
+        <div style={{ background: "#e2f9e9", border: "1px solid #a3e2bb", padding: "16px", borderRadius: "8px", marginBottom: "20px", color: "#108043", fontSize: "14px", lineHeight: "1.4" }}>
+          <strong>🛠️ Development Store Bypass Active:</strong> This store is recognized as a Partner Development store. You have full free access to all Premium features (Inline placement, EU countries filter) without needing to approve any charges.
+        </div>
+      )}
       <style>{`
         .pricing-grid {
           display: grid;

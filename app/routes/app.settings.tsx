@@ -11,10 +11,15 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   const { admin, session } = await authenticate.admin(request);
   const shopDomain = session.shop;
 
-  // Query active subscriptions to check tier
+  // Query active subscriptions and store plan to check tier / bypass for dev stores
   const response = await admin.graphql(`
     #graphql
     query {
+      shop {
+        plan {
+          partnerDevelopment
+        }
+      }
       currentAppInstallation {
         activeSubscriptions {
           name
@@ -25,9 +30,10 @@ export const loader = async ({ request }: LoaderFunctionArgs) => {
   `);
 
   const resJson = await response.json();
+  const isDevStore = resJson.data?.shop?.plan?.partnerDevelopment || false;
   const activeSubscriptions = resJson.data?.currentAppInstallation?.activeSubscriptions || [];
   const activeSubscription = activeSubscriptions.find((s: any) => s.status === "ACTIVE");
-  const isPremium = activeSubscription ? true : false;
+  const isPremium = isDevStore || !!activeSubscription;
 
   const settings = await prisma.shopSettings.upsert({
     where: { shopDomain },
@@ -53,10 +59,15 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const shopDomain = session.shop;
   const formData = await request.formData();
 
-  // Query active subscriptions to verify tier
+  // Query active subscriptions and store plan to check tier / bypass for dev stores
   const response = await admin.graphql(`
     #graphql
     query {
+      shop {
+        plan {
+          partnerDevelopment
+        }
+      }
       currentAppInstallation {
         activeSubscriptions {
           name
@@ -67,9 +78,10 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   `);
 
   const resJson = await response.json();
+  const isDevStore = resJson.data?.shop?.plan?.partnerDevelopment || false;
   const activeSubscriptions = resJson.data?.currentAppInstallation?.activeSubscriptions || [];
   const activeSubscription = activeSubscriptions.find((s: any) => s.status === "ACTIVE");
-  const isPremium = activeSubscription ? true : false;
+  const isPremium = isDevStore || !!activeSubscription;
 
   const isActive = formData.get("isActive") === "true";
   const withdrawalWindowDays = Number(formData.get("withdrawalWindowDays")) || 14;
@@ -82,7 +94,7 @@ export const action = async ({ request }: ActionFunctionArgs) => {
   const buttonPlacement = formData.get("buttonPlacement") as string || "sticky_bottom_right";
   const limitToEU = formData.get("limitToEU") === "true";
 
-  // Enforce Premium features
+  // Enforce Premium features (bypass for development stores)
   if (!isPremium) {
     if (buttonPlacement === "inline") {
       return data({ success: false, error: "The 'Inline Section' placement is a premium feature. Please upgrade your plan." });
